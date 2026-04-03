@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>BINTELLECT</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: #e2e8f0;
+  padding: 20px;
+}
+
+.header {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.grid {
+  display: grid;
+  gap: 18px;
+}
+
+@media (min-width: 900px) {
+  .grid { grid-template-columns: 1fr 1fr; }
+}
+
+.card {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+h2 {
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: #cbd5f5;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 8px;
+  font-size: 12px;
+}
+
+th {
+  background: rgba(255,255,255,0.06);
+}
+
+td {
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.btn {
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  margin-right: 6px;
+}
+
+.open {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+}
+
+.close {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+#status {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+canvas {
+  max-height: 180px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">🚀 BINTELLECT</div>
+
+<div class="grid">
+
+  <div class="card">
+    <h2>Control Panel</h2>
+    <button class="btn open" onclick="sendCommand('open')">Open</button>
+    <button class="btn close" onclick="sendCommand('close')">Close</button>
+    <p id="status"></p>
+  </div>
+
+  <div class="card">
+    <h2>Trash Distribution</h2>
+    <canvas id="pieChart" height="140"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>Trash Detection Records</h2>
+    <table id="data-table">
+      <thead>
+        <tr>
+          <th>Trash</th>
+          <th>Time</th>
+          <th>Conf</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Waste Per Hour</h2>
+    <canvas id="chart" height="80"></canvas>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = "https://trdowkfrxtlryouwssci.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyZG93a2ZyeHRscnlvdXdzc2NpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMjI1ODgsImV4cCI6MjA4OTU5ODU4OH0.yGFSVN3CDqeH-OUx-tQ19sQFVqKaaPKrXGhxkloePbQ";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let chart;
+let pieChart;
+
+let lastLineData = "";
+let lastPieData = "";
+
+// SEND COMMAND
+async function sendCommand(command) {
+  const { error } = await client
+    .from("device_readings")
+    .insert([{ trash_label: command, confidence: 1.0 }]);
+
+  document.getElementById("status").textContent =
+    error ? "❌ Failed" : "✅ Sent: " + command;
+}
+
+// FETCH DATA
+async function fetchData() {
+  const since = new Date(Date.now() - 86400000).toISOString();
+
+  const { data } = await client
+    .from("device_readings")
+    .select("trash_label, created_at, confidence")
+    .gte("created_at", since)
+    .order("created_at", { ascending: true });
+
+  const filtered = data.filter(
+    r => r.trash_label !== "open" && r.trash_label !== "close"
+  );
+
+  // TABLE
+  const tbody = document.querySelector("#data-table tbody");
+  tbody.innerHTML = "";
+
+  filtered.slice().reverse().forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.trash_label}</td>
+      <td>${new Date(r.created_at).toLocaleTimeString()}</td>
+      <td>${r.confidence.toFixed(2)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // LINE DATA
+  const counts = {};
+  filtered.forEach(r => {
+    const d = new Date(r.created_at);
+    const key = d.getHours();
+    counts[key] = (counts[key] || 0) + 1;
+  });
+
+  renderChart(Object.keys(counts), Object.values(counts));
+  renderPieChart(filtered);
+}
+
+// LINE CHART
+function renderChart(labels, values) {
+  const newData = JSON.stringify({ labels, values });
+  if (newData === lastLineData) return;
+  lastLineData = newData;
+
+  const ctx = document.getElementById("chart");
+
+  if (!chart) {
+    chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          borderColor: "#38bdf8",
+          backgroundColor: "rgba(56,189,248,0.2)",
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        animation: { duration: 800 },
+        plugins: { legend: { display: false } }
+      }
+    });
+  } else {
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = values;
+    chart.update("none");
+  }
+}
+
+// PIE CHART
+function renderPieChart(data) {
+  const counts = {};
+  data.forEach(r => {
+    counts[r.trash_label] = (counts[r.trash_label] || 0) + 1;
+  });
+
+  const labels = Object.keys(counts);
+  const values = Object.values(counts);
+
+  const newData = JSON.stringify({ labels, values });
+  if (newData === lastPieData) return;
+  lastPieData = newData;
+
+  const ctx = document.getElementById("pieChart");
+
+  if (!pieChart) {
+    pieChart = new Chart(ctx, {
+      type: "pie",
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: [
+            "#38bdf8",
+            "#818cf8",
+            "#22c55e",
+            "#f59e0b",
+            "#ef4444"
+          ]
+        }]
+      },
+      options: {
+        animation: { duration: 800 }
+      }
+    });
+  } else {
+    pieChart.data.labels = labels;
+    pieChart.data.datasets[0].data = values;
+    pieChart.update("none");
+  }
+}
+
+// INIT
+fetchData();
+setInterval(fetchData, 5000);
+</script>
+
+</body>
+</html>
