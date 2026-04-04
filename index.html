@@ -15,13 +15,13 @@ body {
   font-family: 'Inter', sans-serif;
   background: linear-gradient(135deg, #0f172a, #1e293b);
   color: #e2e8f0;
-  padding: 20px;
+  padding: 16px;
 }
 
 .header {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   background: linear-gradient(90deg, #38bdf8, #818cf8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -29,25 +29,35 @@ body {
 
 .grid {
   display: grid;
-  gap: 18px;
+  gap: 16px;
+  grid-template-columns: 1fr;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 600px) {
   .grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 1100px) {
+  .wide { grid-column: span 2; }
 }
 
 .card {
   background: rgba(255,255,255,0.05);
   backdrop-filter: blur(10px);
   border-radius: 12px;
-  padding: 14px;
+  padding: 12px;
   border: 1px solid rgba(255,255,255,0.06);
+  min-width: 0;
 }
 
 h2 {
-  font-size: 14px;
-  margin-bottom: 10px;
+  font-size: 13px;
+  margin-bottom: 8px;
   color: #cbd5f5;
+}
+
+.table-container {
+  overflow-x: auto;
 }
 
 table {
@@ -56,8 +66,9 @@ table {
 }
 
 th, td {
-  padding: 8px;
-  font-size: 12px;
+  padding: 6px 8px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 th {
@@ -69,9 +80,9 @@ td {
 }
 
 .btn {
-  padding: 8px 12px;
-  font-size: 12px;
-  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 11px;
+  border-radius: 7px;
   border: none;
   cursor: pointer;
   margin-right: 6px;
@@ -88,13 +99,19 @@ td {
 }
 
 #status {
-  margin-top: 8px;
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 11px;
   color: #94a3b8;
 }
 
-canvas {
-  max-height: 180px;
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 180px;
+}
+
+@media (max-width: 400px) {
+  .chart-container { height: 140px; }
 }
 </style>
 </head>
@@ -105,6 +122,7 @@ canvas {
 
 <div class="grid">
 
+  <!-- CONTROL -->
   <div class="card">
     <h2>Control Panel</h2>
     <button class="btn open" onclick="sendCommand('open')">Open</button>
@@ -112,28 +130,37 @@ canvas {
     <p id="status"></p>
   </div>
 
+  <!-- PIE -->
   <div class="card">
     <h2>Trash Distribution</h2>
-    <canvas id="pieChart" height="140"></canvas>
+    <div class="chart-container">
+      <canvas id="pieChart"></canvas>
+    </div>
   </div>
 
-  <div class="card">
+  <!-- TABLE -->
+  <div class="card wide">
     <h2>Trash Detection Records</h2>
-    <table id="data-table">
-      <thead>
-        <tr>
-          <th>Trash</th>
-          <th>Time</th>
-          <th>Conf</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <div class="table-container">
+      <table id="data-table">
+        <thead>
+          <tr>
+            <th>Trash</th>
+            <th>Time</th>
+            <th>Conf</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
-  <div class="card">
+  <!-- LINE -->
+  <div class="card wide">
     <h2>Waste Per Hour</h2>
-    <canvas id="chart" height="80"></canvas>
+    <div class="chart-container">
+      <canvas id="chart"></canvas>
+    </div>
   </div>
 
 </div>
@@ -222,6 +249,8 @@ function renderChart(labels, values) {
         }]
       },
       options: {
+        responsive: true,
+        maintainAspectRatio: false,
         animation: { duration: 800 },
         plugins: { legend: { display: false } }
       }
@@ -266,6 +295,8 @@ function renderPieChart(data) {
         }]
       },
       options: {
+        responsive: true,
+        maintainAspectRatio: false,
         animation: { duration: 800 }
       }
     });
