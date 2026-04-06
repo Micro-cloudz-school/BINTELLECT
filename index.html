@@ -19,7 +19,7 @@ body {
 }
 
 .header {
-  font-size: 18px;
+  font-size: 42px;
   font-weight: 600;
   margin-bottom: 16px;
   background: linear-gradient(90deg, #38bdf8, #818cf8);
@@ -119,6 +119,7 @@ td {
 <body>
 
 <div class="header">🚀 BINTELLECT</div>
+  <br>
 
 <div class="grid">
 
@@ -127,6 +128,8 @@ td {
     <h2>Control Panel</h2>
     <button class="btn open" onclick="sendCommand('open')">Open</button>
     <button class="btn close" onclick="sendCommand('close')">Close</button>
+    <button class="btn open" onclick="sendCommand('start')">AI On</button>
+    <button class="btn close" onclick="sendCommand('stop')">AI Off</button>
     <p id="status"></p>
   </div>
 
@@ -198,7 +201,7 @@ async function fetchData() {
     .order("created_at", { ascending: true });
 
   const filtered = data.filter(
-    r => r.trash_label !== "open" && r.trash_label !== "close"
+    r => r.trash_label !== "open" && r.trash_label !== "close" && r.trash_label !== "start" && r.trash_label !== "stop"
   );
 
   // TABLE
